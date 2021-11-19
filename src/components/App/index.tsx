@@ -55,6 +55,9 @@ const Game = () => {
   const radius = parseInt(params.get("radius") ?? "2");
   const grid = createGrid(radius);
 
+  const [hexes, setHexes] = useState<IHex[]>(grid);
+  const [status, setStatus] = useState<"playing" | "game-over" | "">("");
+
   const handleKeydown = useCallback((e: KeyboardEvent) => {
     let shifted = false;
 
@@ -67,13 +70,15 @@ const Game = () => {
     let group = groupByAxes(hexes, axes);
 
     for (const g in group) {
+      console.log(g, group[g])
       let column = group[g];
 
       column = sortByDirection(column, e.key as Keys);
+      const shiftedColumn = shift(column);
 
-      shifted = shifted || shift(column).shifted;
+      shifted = shifted || shiftedColumn.shifted;
 
-      shift(column).data.forEach(hex => {
+      shiftedColumn.data.forEach(hex => {
         clone.forEach((d: IHex) => {
           if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
             d.value = hex.value;
@@ -82,23 +87,17 @@ const Game = () => {
       });
     }
 
+    const nonEmpty = clone.filter(hex => hex.value !== 0);
     console.log(shifted)
+
     if (!shifted) {
       return;
     }
 
     setHexes(clone);
 
-    const nonEmpty = clone.filter(hex => hex.value !== 0);
-
     postData(`http://${hostname}:${port}/${radius}`, nonEmpty)
       .then((data: IHex[]) => {
-        console.log(data);
-        // FIXME:
-        if (data.length === 0) {
-          return;
-        }
-
         const clone: IHex[] = [];
 
         data.forEach(d => {
@@ -116,8 +115,6 @@ const Game = () => {
         setHexes(clone);
       });
   }, []);
-
-  const [hexes, setHexes] = useState<IHex[]>(grid);
 
   useEffect(() => {
     console.log(">>>>> useEffect started ");
@@ -139,6 +136,7 @@ const Game = () => {
         });
 
         setHexes(hexesWithValue);
+        setStatus("playing");
       })
       .catch(err => console.log(err));
     // console.log(">>>>> useEffect finished ", { grid });
@@ -183,8 +181,8 @@ const Game = () => {
         })}
 
       </div>
-      <div>
-        Game status: {}
+      <div data-status={status}>
+        <strong>Game status:</strong> {status}
       </div>
     </>
   );
@@ -347,6 +345,7 @@ const groupByAxes = (hexes: IHex[], axes: Axes) => {
     }
 
     return acc;
+    // FIXME:
   }, {} as any);
 }
 
@@ -370,26 +369,25 @@ function sortByDirection(arr: IHex[], key: Keys) {
 }
 
 const shift = (arr: IHex[]) => {
-  const clone = [...arr];
   let shifted = false;
   let j = 0;
 
-  for (let i = 1; i < clone.length; i++) {
-      if (clone[i].value === 0) {
+  for (let i = 1; i < arr.length; i++) {
+      if (arr[i].value === 0) {
           // move pointer
-      } else if (clone[j].value === 0 && clone[i].value !== 0) {
-          clone[j].value = clone[i].value;
-          clone[i].value = 0;
+      } else if (arr[j].value === 0 && arr[i].value !== 0) {
+          arr[j].value = arr[i].value;
+          arr[i].value = 0;
           shifted = true;
-      } else if (clone[j].value === clone[i].value) {
-          clone[j].value = clone[j].value + clone[i].value;
-          clone[i].value = 0;
+      } else if (arr[j].value === arr[i].value) {
+          arr[j].value = arr[j].value + arr[i].value;
+          arr[i].value = 0;
           j++;
           shifted = true;
-      } else if (clone[j].value !== clone[i].value) {
-          if (clone[j+1].value === 0) {
-            clone[j+1].value = clone[i].value;
-            clone[i].value = 0;
+      } else if (arr[j].value !== arr[i].value) {
+          if (arr[j+1].value === 0) {
+            arr[j+1].value = arr[i].value;
+            arr[i].value = 0;
             shifted = true;
           }
 
@@ -397,7 +395,7 @@ const shift = (arr: IHex[]) => {
       }
   }
 
-  return { data: clone, shifted };
+  return { data: arr, shifted };
 }
 
 const getFillColor = (num: number) => {

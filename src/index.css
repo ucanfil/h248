@@ -24,3 +24,29 @@ html, body, #root {
   margin: 0;
   padding: 0;
 }
+
+.App {
+  width: 500px;
+  height: 100%;
+  margin: 0 auto;
+  padding-top: 1em;
+}
+
+.game {
+  position: relative;
+  height: 550px;
+}
+
+.hex {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: grey;
+}
+
+.hexvalue {
+  position: absolute;
+}

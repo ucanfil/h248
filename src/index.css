@@ -42,7 +42,7 @@ html, body, #root {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: bold;
   color: grey;
 }

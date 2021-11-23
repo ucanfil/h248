@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import clone from "ramda/es/clone";
 
 type IQueryParams = {
   port: string;
@@ -7,6 +8,7 @@ type IQueryParams = {
 }
 
 type IGrid = {
+  id: number;
   x: number;
   y: number;
   z: number;
@@ -39,7 +41,7 @@ export const App: React.FC = () => {
   // const [radius, setRadius] = useState(2);
 
   return (
-    <div className="App">
+    <div className="App"  onKeyDown={(e) => console.log(e.key)}>
       {/* {hexes.length === 0 ?
         <GameSettings setRadius={setRadius} radius={radius} /> : */}
         <Game />
@@ -51,81 +53,111 @@ export const App: React.FC = () => {
 const Game = () => {
   const params = new URLSearchParams(window.location.search);
   const hostname = params.get("hostname");
-  const port = params.get("port");
+  const port = params.get("port") ?? "80";
   const radius = parseInt(params.get("radius") ?? "2");
   const grid = createGrid(radius);
-
+  
   const [hexes, setHexes] = useState<IHex[]>(grid);
   const [status, setStatus] = useState<"playing" | "game-over" | "">("");
+  const stateRef = useRef(hexes);
 
   const handleKeydown = useCallback((e: KeyboardEvent) => {
-    let shifted = false;
-
     if (!["q", "w", "e", "a", "s", "d"].includes(e.key)) {
       return;
     }
 
+    let shifted = false;
+    const cloned: IHex[] = clone(stateRef.current);
     const axes = getAxes(e.key as Keys);
-    const clone = [...hexes];
-    let group = groupByAxes(hexes, axes);
+    let groups = groupsByAxes(cloned, axes);
 
-    for (const g in group) {
-      console.log(g, group[g])
-      let column = group[g];
+    for (const group in groups) {
+      let column = groups[group];
 
       column = sortByDirection(column, e.key as Keys);
       const shiftedColumn = shift(column);
 
       shifted = shifted || shiftedColumn.shifted;
 
-      shiftedColumn.data.forEach(hex => {
-        clone.forEach((d: IHex) => {
-          if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
-            d.value = hex.value;
+      shiftedColumn.data.forEach(d => {
+        cloned.forEach((hex: IHex) => {
+          if (hex.x === d.x && hex.y === d.y && hex.z === d.z) {
+            hex.value = d.value;
           }
         });
       });
     }
 
-    const nonEmpty = clone.filter(hex => hex.value !== 0);
-    console.log(shifted)
-
+    // console.log(cloned);
     if (!shifted) {
       return;
     }
 
-    setHexes(clone);
+    setHexes(cloned);
+
+
+    const nonEmpty = cloned.filter(hex => hex.value !== 0);
 
     postData(`http://${hostname}:${port}/${radius}`, nonEmpty)
       .then((data: IHex[]) => {
-        const clone: IHex[] = [];
-
-        data.forEach(d => {
-          hexes.forEach(hex => {
+        // const cloned: IHex[] = clone(cloned);
+        // console.log(data)
+        const hexesWithValue = clone(cloned).map(hex => {
+          data.forEach((d: IHex) => {
             if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
               hex.value = d.value;
             }
-
-            clone.push(hex);
           });
+
+          return hex;
         });
 
-        // FIXME:
-        // if (empty.length) return;
-        setHexes(clone);
+        // console.log(hexesWithValue);
+        setHexes(hexesWithValue);
+        stateRef.current = hexesWithValue;
+
+        // FIXME: GAME OVER
+        console.log(hexes, stateRef.current);
+        let isPlaying = false;
+
+        // console.log(hexes, hexesWithValue);
+    
+        let clonedHexes = clone(hexesWithValue);
+    
+        outerloop:
+        for (const key of ["q", "w", "e", "a", "s", "d"]){
+          const axes = getAxes(key as Keys);
+          let groups = groupsByAxes(clonedHexes, axes);
+          console.log(">>>>> ", key, axes, clonedHexes, groups);
+    
+          for (const group in groups) {
+            let column = groups[group];
+    
+            column = sortByDirection(column, key as Keys);
+    
+            if (shift(column).shifted) {
+              isPlaying = true;
+              break outerloop;
+            }
+          }
+        }
+    
+        console.log("Hello?")
+        console.log(">>>>> ", isPlaying);
+        setStatus(isPlaying ? "playing" : "game-over");
       });
   }, []);
 
   useEffect(() => {
     console.log(">>>>> useEffect started ");
-    // const grid = createGrid(radius);
 
     // Initial request to server
     postData(`http://${hostname}:${port}/${radius}`)
       .then((data: IHex[]) => {
         console.log(" Initial request to server");
+        const cloned: IHex[] = clone(hexes);
 
-        const hexesWithValue = hexes.map(hex => {
+        const hexesWithValue = cloned.map(hex => {
           data.forEach((d: IHex) => {
             if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
               hex.value = d.value;
@@ -136,10 +168,39 @@ const Game = () => {
         });
 
         setHexes(hexesWithValue);
-        setStatus("playing");
+        stateRef.current = hexesWithValue;
+        // setStatus("playing");
+
+        let isPlaying = false;
+
+        // console.log(hexes, hexesWithValue);
+    
+        let clonedHexes = clone(hexesWithValue);
+    
+        outerloop:
+        for (const key of ["q", "w", "e", "a", "s", "d"]){
+          const axes = getAxes(key as Keys);
+          let groups = groupsByAxes(clonedHexes, axes);
+          console.log(">>>>> ", key, axes, clonedHexes, groups);
+    
+          for (const group in groups) {
+            let column = groups[group];
+    
+            column = sortByDirection(column, key as Keys);
+    
+            if (shift(column).shifted) {
+              isPlaying = true;
+              break outerloop;
+            }
+          }
+        }
+    
+        console.log("Hello?")
+        console.log(">>>>> ", isPlaying);
+        setStatus(isPlaying ? "playing" : "game-over");
       })
       .catch(err => console.log(err));
-    // console.log(">>>>> useEffect finished ", { grid });
+
     window.addEventListener("keydown", handleKeydown);
 
     return () => {
@@ -150,43 +211,55 @@ const Game = () => {
   return (
     <>
       <div className="game">
-        {hexes.map((hex, i) => {
-          let x = flat_hex_to_pixel(hex, radius).x;
-          let y = flat_hex_to_pixel(hex, radius).y;
-          x += hexCenterToTopLeft(radius).x;
-          y += hexCenterToTopLeft(radius).y;
-          x += containerCenterToTopLeft(radius).x;
-          y += containerCenterToTopLeft(radius).y;
+        {hexes.map(hex => {
+          let left = flatHexToPixel(hex, radius).x;
+          let top = flatHexToPixel(hex, radius).y;
+          left += hexCenterToTopLeft(radius).x;
+          top += hexCenterToTopLeft(radius).y;
+          left += containerCenterToTopLeft(radius).x;
+          top += containerCenterToTopLeft(radius).y;
 
           return (
-            <div
-            // FIXME:
-              key={`${new Date().getTime() * i}`}
-              className="hex"
-              data-x={hex.x}
-              data-y={hex.y}
-              data-z={hex.z}
-              data-value={hex.value}
-              style={{
-                width: `${calcWidth(radius)}px`,
-                height: `${calcHeight(radius)}px`,
-                top: `${y}px`,
-                left: `${x}px`
-              }}
-            >
-              <HexBg fill={getFillColor(hex.value)}/>
-              <span className="hexvalue">{hex.value !== 0 ? hex.value : null}</span>
-            </div>
+            <Hex
+              key={hex.id}
+              hex={hex}
+              radius={radius}
+              top={top}
+              left={left}
+            />
           )
         })}
 
       </div>
-      <div data-status={status}>
+      <div className="status" data-status={status}>
         <strong>Game status:</strong> {status}
       </div>
     </>
   );
 }
+
+const Hex = ({ hex, radius, top, left }: { hex: IHex, radius: number, top: number, left: number }) => (
+  <div
+    className="hex"
+    data-x={hex.x}
+    data-y={hex.y}
+    data-z={hex.z}
+    data-value={hex.value}
+    style={{
+      width: `${calcWidth(radius)}px`,
+      height: `${calcHeight(radius)}px`,
+      top: `${top}px`,
+      left: `${left}px`
+    }}
+  >
+    <HexBg fill={getFillColor(hex.value)}/>
+    <HexValue id={hex.id} value={hex.value}/>
+  </div>
+);
+
+const HexValue = ({ id, value }: {id: number, value: number}) =>
+// FIXME:
+  <span key={id} className="hexvalue">{value !== 0 ? value : null}</span>
 
 const HexBg = ({ fill }: { fill: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="200" height="173.205" viewBox="0 0 200 173.205">
@@ -271,23 +344,24 @@ const generateQueryParams = (obj: IQueryParams) =>
     .join('&');
 
 const createGrid = (radius: number) => {
-  const coords = [];
-  // FIXME:
-  radius = radius - 1;
+  const hexes = [];
+  let id = 0;
+  const limit = radius - 1;
 
-  for (let x = -radius; x <= radius; x++) {
-    let r1 = Math.max(-radius, -x - radius);
-    let r2 = Math.min(radius, -x + radius);
+  for (let x = -limit; x <= limit; x++) {
+    let r1 = Math.max(-limit, -x - limit);
+    let r2 = Math.min(limit, -x + limit);
     for (let y = r1; y <= r2; y++) {
+        id++;
         const z = -x-y;
-        coords.push({ x, y, z, value: 0 });
+        hexes.push({ id, x, y, z, value: 0 });
     }
   }
 
-  return coords;
+  return hexes;
 }
 
-function flat_hex_to_pixel(hex: IHex, radius: number) {
+function flatHexToPixel(hex: IHex, radius: number) {
   const size = 500 / (3 * radius - 1);
 
   const x = size * (3 / 2 * hex.x)
@@ -313,14 +387,14 @@ const containerCenterToTopLeft = (radius: number) => {
 }
 
 const calcWidth = (radius: number) => {
-  const size = 500 / (3 * radius - 1);
-  return size * 2;
+  return calcSize(radius) * 2;
 }
 
 const calcHeight = (radius: number) => {
-  const size = 500 / (3 * radius - 1);
-  return size * Math.sqrt(3);
+  return calcSize(radius) * Math.sqrt(3);
 }
+
+const calcSize = (radius: number) => 500 / (3 * radius - 1);
 
 const getAxes = (key: Keys) => {
   switch(key) {
@@ -336,7 +410,7 @@ const getAxes = (key: Keys) => {
   }
 }
 
-const groupByAxes = (hexes: IHex[], axes: Axes) => {
+const groupsByAxes = (hexes: IHex[], axes: Axes) => {
   return hexes.reduce((acc, hex) => {
     if (acc[`${(hex[axes])}`] !== undefined) {
         acc[`${(hex[axes])}`].push(hex);

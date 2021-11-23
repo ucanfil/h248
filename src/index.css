@@ -50,3 +50,7 @@ html, body, #root {
 .hexvalue {
   position: absolute;
 }
+
+.status {
+  text-align: center;
+}

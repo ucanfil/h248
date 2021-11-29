@@ -12,6 +12,10 @@ type IGrid = {
   x: number;
   y: number;
   z: number;
+  width: number;
+  height: number;
+  top: number;
+  left: number;
 }
 
 type IHex = {
@@ -67,8 +71,9 @@ const Game = () => {
   const port = params.get("port") ?? "80";
   const radius = parseInt(params.get("radius") ?? "2");
   const grid = createGrid(radius);
+  const positionedGrid = positionGrid(grid, radius);
 
-  const [hexes, setHexes] = useState<IHex[]>(grid);
+  const [hexes, setHexes] = useState<IHex[]>(positionedGrid);
   const [status, setStatus] = useState<"playing" | "game-over" | "">("");
 
   const isPlaying = useCallback((hexes) => {
@@ -180,25 +185,21 @@ const Game = () => {
   return (
     <>
       <div className="game">
-        {hexes.map(hex => {
-          let left = flatHexToPixel(hex, radius).x;
-          let top = flatHexToPixel(hex, radius).y;
-          left += hexCenterToTopLeft(radius).x;
-          top += hexCenterToTopLeft(radius).y;
-          left += containerCenterToTopLeft(radius).x;
-          top += containerCenterToTopLeft(radius).y;
-
-          return (
-            <Hex
-              key={hex.id}
-              hex={hex}
-              radius={radius}
-              top={top}
-              left={left}
-            />
+        {hexes.map(hex => (
+          <Hex
+            key={hex.id}
+            id={hex.id}
+            x={hex.x}
+            y={hex.y}
+            z={hex.z}
+            value={hex.value}
+            width={hex.width}
+            height={hex.height}
+            top={hex.top}
+            left={hex.left}
+          />
           )
-        })}
-
+        )}
       </div>
       <div className="status" data-status={status}>
         <strong>Game status:</strong> {status}
@@ -207,22 +208,22 @@ const Game = () => {
   );
 }
 
-const Hex = ({ hex, radius, top, left }: IHexWithStyle) => (
+const Hex = ({ id, x, y, z, value, width, height, top, left }: IHex ) => (
   <div
     className="hex"
-    data-x={hex.x}
-    data-y={hex.y}
-    data-z={hex.z}
-    data-value={hex.value}
+    data-x={x}
+    data-y={y}
+    data-z={z}
+    data-value={value}
     style={{
-      width: `${calcWidth(radius)}px`,
-      height: `${calcHeight(radius)}px`,
+      width: `${width}px`,
+      height: `${height}px`,
       top: `${top}px`,
       left: `${left}px`
     }}
   >
-    <HexBg fill={getFillColor(hex.value)}/>
-    <HexValue id={hex.id} value={hex.value}/>
+    <HexBg fill={getFillColor(value)}/>
+    <HexValue id={id} value={value}/>
   </div>
 );
 
@@ -322,11 +323,32 @@ const createGrid = (radius: number) => {
     for (let y = r1; y <= r2; y++) {
         id++;
         const z = -x-y;
-        hexes.push({ id, x, y, z, value: 0 });
+        hexes.push({ id, x, y, z, width: 0, height: 0, left: 0, top: 0, value: 0 });
     }
   }
 
   return hexes;
+}
+
+const positionGrid = (hexes: IHex[], radius: number) => {
+  const normalizer = normalizeLeft(hexes, radius);
+
+  return hexes.map(hex => {
+    let left = flatHexToPixel(hex, radius).x;
+    let top = flatHexToPixel(hex, radius).y;
+    left += hexCenterToTopLeft(radius).x;
+    top += hexCenterToTopLeft(radius).y;
+    left += containerCenterToTopLeft(radius).x;
+    top += containerCenterToTopLeft(radius).y;
+    left += normalizer;
+
+    hex.width = calcWidth(radius);
+    hex.height = calcHeight(radius);
+    hex.left = left;
+    hex.top = top;
+
+    return hex;
+  });
 }
 
 function flatHexToPixel(hex: IHex, radius: number) {
@@ -338,7 +360,7 @@ function flatHexToPixel(hex: IHex, radius: number) {
 }
 
 const hexCenterToTopLeft = (radius: number) => {
-  const size = 500 / (3 * radius - 1);
+  const size = calcSize(radius);
   const x = size;
   const y = size * Math.sqrt(3) / 2
 
@@ -346,12 +368,21 @@ const hexCenterToTopLeft = (radius: number) => {
 }
 
 const containerCenterToTopLeft = (radius: number) => {
-  const size = 500 / (3 * radius - 1); // 100
+  const size = calcSize(radius);
   const distCoefficient = 2 * radius - 1;
   const x = distCoefficient * size / 2;
   const y = distCoefficient * size * Math.sqrt(3) / 2
 
   return { x, y };
+}
+
+const normalizeLeft = (hexes: IHex[], radius: number) => {
+  const farLeftHex = hexes.find(hex => hex.x === -(radius - 1) && hex.y === radius - 1)!;
+  let shift = flatHexToPixel(farLeftHex, radius).x;
+  shift += hexCenterToTopLeft(radius).x;
+  shift += containerCenterToTopLeft(radius).x;
+
+  return -shift;
 }
 
 const calcWidth = (radius: number) => {

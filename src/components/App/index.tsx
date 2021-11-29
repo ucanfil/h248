@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import clone from "ramda/es/clone";
 
 type IQueryParams = {
@@ -60,6 +60,31 @@ const Game = () => {
   const [hexes, setHexes] = useState<IHex[]>(grid);
   const [status, setStatus] = useState<"playing" | "game-over" | "">("");
 
+  const isPlaying = useCallback((hexes) => {
+    let isPlaying = false;
+
+    let clonedHexes = clone(hexes);
+
+    outerloop:
+    for (const key of ["q", "w", "e", "a", "s", "d"]){
+      const axes = getAxes(key as Keys);
+      let groups = groupsByAxes(clonedHexes, axes);
+
+      for (const group in groups) {
+        let column = groups[group];
+
+        column = sortByDirection(column, key as Keys);
+
+        if (shift(column).shifted) {
+          isPlaying = true;
+          break outerloop;
+        }
+      }
+    }
+
+    return isPlaying;
+  }, []);
+
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
       if (!["q", "w", "e", "a", "s", "d"].includes(e.key)) {
@@ -111,29 +136,7 @@ const Game = () => {
 
           setHexes(hexesWithValue);
 
-          // FIXME: GAME OVER
-          let isPlaying = false;
-
-          let clonedHexes = clone(hexesWithValue);
-
-          outerloop:
-          for (const key of ["q", "w", "e", "a", "s", "d"]){
-            const axes = getAxes(key as Keys);
-            let groups = groupsByAxes(clonedHexes, axes);
-
-            for (const group in groups) {
-              let column = groups[group];
-
-              column = sortByDirection(column, key as Keys);
-
-              if (shift(column).shifted) {
-                isPlaying = true;
-                break outerloop;
-              }
-            }
-          }
-
-          setStatus(isPlaying ? "playing" : "game-over");
+          setStatus(isPlaying(hexesWithValue) ? "playing" : "game-over");
         });
     };
 
@@ -144,7 +147,7 @@ const Game = () => {
     return () => {
       window.removeEventListener("keydown", handleKeydown);
     }
-  }, [hexes, hostname, port, radius]);
+  }, [hexes, hostname, port, radius, isPlaying]);
 
   // Initial request to server
   useEffect(() => {
@@ -165,28 +168,7 @@ const Game = () => {
 
         setHexes(hexesWithValue);
 
-        let isPlaying = false;
-
-        let clonedHexes = clone(hexesWithValue);
-
-        outerloop:
-        for (const key of ["q", "w", "e", "a", "s", "d"]){
-          const axes = getAxes(key as Keys);
-          let groups = groupsByAxes(clonedHexes, axes);
-
-          for (const group in groups) {
-            let column = groups[group];
-
-            column = sortByDirection(column, key as Keys);
-
-            if (shift(column).shifted) {
-              isPlaying = true;
-              break outerloop;
-            }
-          }
-        }
-
-        setStatus(isPlaying ? "playing" : "game-over");
+        setStatus(isPlaying(hexesWithValue) ? "playing" : "game-over");
       })
       .catch(err => console.log(err));
   }, []);

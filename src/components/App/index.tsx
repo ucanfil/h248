@@ -18,6 +18,13 @@ type IHex = {
   value: number;
 } & IGrid;
 
+type IHexWithStyle = {
+  hex: IHex;
+  radius: number;
+  top: number;
+  left: number;
+}
+
 type ISetHexes = {
   setRadius: (radius: number) => void;
   radius: number;
@@ -45,7 +52,7 @@ export const App: React.FC = () => {
   // const [radius, setRadius] = useState(2);
 
   return (
-    <div className="App"  onKeyDown={(e) => console.log(e.key)}>
+    <div className="App">
       {/* {hexes.length === 0 ?
         <GameSettings setRadius={setRadius} radius={radius} /> : */}
         <Game />
@@ -153,8 +160,6 @@ const Game = () => {
         .catch(err => console.log(err));
     };
 
-    console.log(">>>>> handleKeydown useEffect started ");
-
     window.addEventListener("keydown", handleKeydown);
 
     return () => {
@@ -202,7 +207,7 @@ const Game = () => {
   );
 }
 
-const Hex = ({ hex, radius, top, left }: { hex: IHex, radius: number, top: number, left: number }) => (
+const Hex = ({ hex, radius, top, left }: IHexWithStyle) => (
   <div
     className="hex"
     data-x={hex.x}
@@ -381,7 +386,6 @@ const groupsByAxes = (hexes: IHex[], axes: Axes) => {
         acc[`${(hex[axes])}`] = [hex];
     }
 
-    console.log(acc);
     return acc;
   }, {} as IAccumulator);
 }

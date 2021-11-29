@@ -23,13 +23,17 @@ type ISetHexes = {
   radius: number;
 }
 
+type Keys = "q" | "w" | "e" | "a" | "s" | "d";
+
+type IAccumulator = {
+  [key: string]: IHex[]
+}
+
 type IGame = {
   setHexes: (arr: IHex[]) => void;
   hexes: IHex[];
   radius: number;
 }
-
-type Keys = "q" | "w" | "e" | "a" | "s" | "d";
 
 enum Axes {
   x = "x",
@@ -85,6 +89,27 @@ const Game = () => {
     return isPlaying;
   }, []);
 
+  const getHexesData = useCallback(async (hexes: IHex[]) => {
+    const nonEmpty = hexes.filter(hex => hex.value !== 0);
+
+    const data = await postData(`http://${hostname}:${port}/${radius}`, nonEmpty)
+        .then((data: IHex[]) => {
+          const hexesWithValue = clone(hexes).map(hex => {
+            data.forEach((d: IHex) => {
+              if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
+                hex.value = d.value;
+              }
+            });
+
+            return hex;
+          });
+
+          return hexesWithValue;
+        });
+
+    return data;
+  }, [hostname, port, radius]);
+
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
       if (!["q", "w", "e", "a", "s", "d"].includes(e.key)) {
@@ -120,24 +145,12 @@ const Game = () => {
 
       setHexes(cloned);
 
-      const nonEmpty = cloned.filter(hex => hex.value !== 0);
-
-      postData(`http://${hostname}:${port}/${radius}`, nonEmpty)
-        .then((data: IHex[]) => {
-          const hexesWithValue = clone(cloned).map(hex => {
-            data.forEach((d: IHex) => {
-              if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
-                hex.value = d.value;
-              }
-            });
-
-            return hex;
-          });
-
-          setHexes(hexesWithValue);
-
-          setStatus(isPlaying(hexesWithValue) ? "playing" : "game-over");
-        });
+      getHexesData(cloned)
+        .then(hexes => {
+          setHexes(hexes);
+          setStatus(isPlaying(hexes) ? "playing" : "game-over");
+        })
+        .catch(err => console.log(err));
     };
 
     console.log(">>>>> handleKeydown useEffect started ");
@@ -147,28 +160,14 @@ const Game = () => {
     return () => {
       window.removeEventListener("keydown", handleKeydown);
     }
-  }, [hexes, hostname, port, radius, isPlaying]);
+  }, [hexes, hostname, port, radius, isPlaying, getHexesData]);
 
   // Initial request to server
   useEffect(() => {
-    postData(`http://${hostname}:${port}/${radius}`)
-      .then((data: IHex[]) => {
-        console.log(" Initial request to server");
-        const cloned: IHex[] = clone(hexes);
-
-        const hexesWithValue = cloned.map(hex => {
-          data.forEach((d: IHex) => {
-            if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
-              hex.value = d.value;
-            }
-          });
-
-          return hex;
-        });
-
-        setHexes(hexesWithValue);
-
-        setStatus(isPlaying(hexesWithValue) ? "playing" : "game-over");
+    getHexesData(hexes)
+      .then(hexes => {
+        setHexes(hexes);
+        setStatus(isPlaying(hexes) ? "playing" : "game-over");
       })
       .catch(err => console.log(err));
   }, []);
@@ -223,7 +222,6 @@ const Hex = ({ hex, radius, top, left }: { hex: IHex, radius: number, top: numbe
 );
 
 const HexValue = ({ id, value }: {id: number, value: number}) =>
-// FIXME:
   <span key={id} className="hexvalue">{value !== 0 ? value : null}</span>
 
 const HexBg = ({ fill }: { fill: string }) => (
@@ -376,16 +374,16 @@ const getAxes = (key: Keys) => {
 }
 
 const groupsByAxes = (hexes: IHex[], axes: Axes) => {
-  return hexes.reduce((acc, hex) => {
+  return hexes.reduce((acc, hex: IHex) => {
     if (acc[`${(hex[axes])}`] !== undefined) {
         acc[`${(hex[axes])}`].push(hex);
     } else {
         acc[`${(hex[axes])}`] = [hex];
     }
 
+    console.log(acc);
     return acc;
-    // FIXME:
-  }, {} as any);
+  }, {} as IAccumulator);
 }
 
 function sortByDirection(arr: IHex[], key: Keys) {

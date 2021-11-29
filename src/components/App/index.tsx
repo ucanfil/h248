@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import clone from "ramda/es/clone";
 
 type IQueryParams = {
@@ -56,102 +56,98 @@ const Game = () => {
   const port = params.get("port") ?? "80";
   const radius = parseInt(params.get("radius") ?? "2");
   const grid = createGrid(radius);
-  
+
   const [hexes, setHexes] = useState<IHex[]>(grid);
   const [status, setStatus] = useState<"playing" | "game-over" | "">("");
-  const stateRef = useRef(hexes);
 
-  const handleKeydown = useCallback((e: KeyboardEvent) => {
-    if (!["q", "w", "e", "a", "s", "d"].includes(e.key)) {
-      return;
-    }
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (!["q", "w", "e", "a", "s", "d"].includes(e.key)) {
+        return;
+      }
 
-    let shifted = false;
-    const cloned: IHex[] = clone(stateRef.current);
-    const axes = getAxes(e.key as Keys);
-    let groups = groupsByAxes(cloned, axes);
+      let shifted = false;
 
-    for (const group in groups) {
-      let column = groups[group];
+      const cloned: IHex[] = clone(hexes);
+      const axes = getAxes(e.key as Keys);
+      let groups = groupsByAxes(cloned, axes);
 
-      column = sortByDirection(column, e.key as Keys);
-      const shiftedColumn = shift(column);
+      for (const group in groups) {
+        let column = groups[group];
 
-      shifted = shifted || shiftedColumn.shifted;
+        column = sortByDirection(column, e.key as Keys);
+        const shiftedColumn = shift(column);
 
-      shiftedColumn.data.forEach(d => {
-        cloned.forEach((hex: IHex) => {
-          if (hex.x === d.x && hex.y === d.y && hex.z === d.z) {
-            hex.value = d.value;
-          }
-        });
-      });
-    }
+        shifted = shifted || shiftedColumn.shifted;
 
-    // console.log(cloned);
-    if (!shifted) {
-      return;
-    }
-
-    setHexes(cloned);
-
-
-    const nonEmpty = cloned.filter(hex => hex.value !== 0);
-
-    postData(`http://${hostname}:${port}/${radius}`, nonEmpty)
-      .then((data: IHex[]) => {
-        // const cloned: IHex[] = clone(cloned);
-        // console.log(data)
-        const hexesWithValue = clone(cloned).map(hex => {
-          data.forEach((d: IHex) => {
-            if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
+        shiftedColumn.data.forEach(d => {
+          cloned.forEach((hex: IHex) => {
+            if (hex.x === d.x && hex.y === d.y && hex.z === d.z) {
               hex.value = d.value;
             }
           });
-
-          return hex;
         });
+      }
 
-        // console.log(hexesWithValue);
-        setHexes(hexesWithValue);
-        stateRef.current = hexesWithValue;
+      if (!shifted) {
+        return;
+      }
 
-        // FIXME: GAME OVER
-        console.log(hexes, stateRef.current);
-        let isPlaying = false;
+      setHexes(cloned);
 
-        // console.log(hexes, hexesWithValue);
-    
-        let clonedHexes = clone(hexesWithValue);
-    
-        outerloop:
-        for (const key of ["q", "w", "e", "a", "s", "d"]){
-          const axes = getAxes(key as Keys);
-          let groups = groupsByAxes(clonedHexes, axes);
-          console.log(">>>>> ", key, axes, clonedHexes, groups);
-    
-          for (const group in groups) {
-            let column = groups[group];
-    
-            column = sortByDirection(column, key as Keys);
-    
-            if (shift(column).shifted) {
-              isPlaying = true;
-              break outerloop;
+      const nonEmpty = cloned.filter(hex => hex.value !== 0);
+
+      postData(`http://${hostname}:${port}/${radius}`, nonEmpty)
+        .then((data: IHex[]) => {
+          const hexesWithValue = clone(cloned).map(hex => {
+            data.forEach((d: IHex) => {
+              if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
+                hex.value = d.value;
+              }
+            });
+
+            return hex;
+          });
+
+          setHexes(hexesWithValue);
+
+          // FIXME: GAME OVER
+          let isPlaying = false;
+
+          let clonedHexes = clone(hexesWithValue);
+
+          outerloop:
+          for (const key of ["q", "w", "e", "a", "s", "d"]){
+            const axes = getAxes(key as Keys);
+            let groups = groupsByAxes(clonedHexes, axes);
+
+            for (const group in groups) {
+              let column = groups[group];
+
+              column = sortByDirection(column, key as Keys);
+
+              if (shift(column).shifted) {
+                isPlaying = true;
+                break outerloop;
+              }
             }
           }
-        }
-    
-        console.log("Hello?")
-        console.log(">>>>> ", isPlaying);
-        setStatus(isPlaying ? "playing" : "game-over");
-      });
-  }, []);
 
+          setStatus(isPlaying ? "playing" : "game-over");
+        });
+    };
+
+    console.log(">>>>> handleKeydown useEffect started ");
+
+    window.addEventListener("keydown", handleKeydown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+    }
+  }, [hexes, hostname, port, radius]);
+
+  // Initial request to server
   useEffect(() => {
-    console.log(">>>>> useEffect started ");
-
-    // Initial request to server
     postData(`http://${hostname}:${port}/${radius}`)
       .then((data: IHex[]) => {
         console.log(" Initial request to server");
@@ -168,45 +164,32 @@ const Game = () => {
         });
 
         setHexes(hexesWithValue);
-        stateRef.current = hexesWithValue;
-        // setStatus("playing");
 
         let isPlaying = false;
 
-        // console.log(hexes, hexesWithValue);
-    
         let clonedHexes = clone(hexesWithValue);
-    
+
         outerloop:
         for (const key of ["q", "w", "e", "a", "s", "d"]){
           const axes = getAxes(key as Keys);
           let groups = groupsByAxes(clonedHexes, axes);
-          console.log(">>>>> ", key, axes, clonedHexes, groups);
-    
+
           for (const group in groups) {
             let column = groups[group];
-    
+
             column = sortByDirection(column, key as Keys);
-    
+
             if (shift(column).shifted) {
               isPlaying = true;
               break outerloop;
             }
           }
         }
-    
-        console.log("Hello?")
-        console.log(">>>>> ", isPlaying);
+
         setStatus(isPlaying ? "playing" : "game-over");
       })
       .catch(err => console.log(err));
-
-    window.addEventListener("keydown", handleKeydown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeydown);
-    }
-  }, [handleKeydown]);
+  }, []);
 
   return (
     <>

@@ -3,6 +3,7 @@ import clone from "ramda/es/clone";
 import { IHex, Keys } from "../../interfaces";
 import {
   buildUrl,
+  checkIsPlaying,
   createGrid,
   getAxes,
   getFillColor,
@@ -30,29 +31,7 @@ const Game = () => {
   const [hexes, setHexes] = useState<IHex[]>(positionedGrid);
   const [status, setStatus] = useState<"playing" | "game-over" | "">("");
 
-  const isPlaying = useCallback((hexes) => {
-    let isPlaying = false;
-    let clonedHexes = clone(hexes);
-
-    outerloop:
-    for (const key of ["q", "w", "e", "a", "s", "d"]){
-      const axes = getAxes(key as Keys);
-      let groups = groupsByAxes(clonedHexes, axes);
-
-      for (const group in groups) {
-        let column = groups[group];
-
-        column = sortByDirection(column, key as Keys);
-
-        if (shift(column).shifted) {
-          isPlaying = true;
-          break outerloop;
-        }
-      }
-    }
-
-    return isPlaying;
-  }, []);
+  const isPlaying = useCallback(checkIsPlaying, []);
 
   const getHexesData = useCallback(async (hexes: IHex[]) => {
     const nonEmpty = hexes.filter(hex => hex.value !== 0);

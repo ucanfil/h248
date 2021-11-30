@@ -1,6 +1,25 @@
 import { Axes } from "./enums";
 import { IHex, Keys, IAccumulator } from "./interfaces";
 
+export const buildUrl = (hostname: string, radius: number, port: string | null) => {
+    let url = "http";
+    const isLocalhost = hostname.includes("localhost");
+
+    if (!isLocalhost) {
+      url = `${url}s`;
+    }
+
+    url = `${url}://${hostname}`;
+
+    if (isLocalhost && port) {
+      url = `${url}:${port}`;
+    }
+
+    url = `${url}/${radius}`;
+
+    return url;
+}
+
 export const postData = async (url = '', data: IHex[] = []) => {
     // Default options are marked with *
     const response = await fetch(url, {

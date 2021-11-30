@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import clone from "ramda/es/clone";
 import { IHex, Keys } from "../../interfaces";
 import {
+  buildUrl,
   createGrid,
   getAxes,
   getFillColor,
@@ -20,9 +21,9 @@ export const App: React.FC = () => (
 
 const Game = () => {
   const params = new URLSearchParams(window.location.search);
-  const hostname = params.get("hostname");
-  const port = params.get("port") ?? "80";
+  const hostname = params.get("hostname") ?? "hex2048szb9jquj-hex15.functions.fnc.fr-par.scw.cloud";
   const radius = parseInt(params.get("radius") ?? "2");
+  const port = params.get("port");
   const grid = createGrid(radius);
   const positionedGrid = positionGrid(grid, radius);
 
@@ -56,7 +57,7 @@ const Game = () => {
   const getHexesData = useCallback(async (hexes: IHex[]) => {
     const nonEmpty = hexes.filter(hex => hex.value !== 0);
 
-    const data = await postData(`http://${hostname}:${port}/${radius}`, nonEmpty)
+    const data = await postData(buildUrl(hostname, radius, port), nonEmpty)
         .then((data: IHex[]) => {
           const hexesWithValue = clone(hexes).map(hex => {
             data.forEach((d: IHex) => {

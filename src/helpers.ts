@@ -87,7 +87,6 @@ export const flatHexToPixel = (hex: IHex, radius: number) => {
 
 export const hexCenterToTopLeft = (radius: number) => {
     const size = calcSize(radius);
-    const x = size;
     const y = size * Math.sqrt(3) / 2
 
     return { x: 0, y: -y };

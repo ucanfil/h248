@@ -1,3 +1,11 @@
+# To Reviewers
+ - Game has been deployed to `infamous-card.surge.sh` so you can run test via:
+     `yarn test:local -- --url=https://infamous-card.surge.sh` or simply run:
+     `yarn test`
+
+ - Game has been built with several levels capability.
+ - Unit tests are included.
+
 # Hexagonal 2048
 
 ## Task description

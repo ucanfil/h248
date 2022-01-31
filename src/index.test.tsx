@@ -1,4 +1,4 @@
-import { buildUrl, checkIsPlaying, createGrid, shift } from "./helpers";
+import { buildUrl, checkIsPlaying, createGrid, shiftLeftAndAggregate } from "./helpers";
 
 describe("build URL", () => {
     it("should build url with http protocol for localhost", () => {
@@ -40,7 +40,7 @@ describe("shift row", () => {
             { ...partialProps, value: 4 }
         ];
 
-        const shifted = shift(arr);
+        const shifted = shiftLeftAndAggregate(arr);
         expect(shifted.data[0].value).toBe(4);
         expect(shifted.data[1].value).toBe(4);
         expect(shifted.data[2].value).toBe(0);
@@ -57,7 +57,7 @@ describe("shift row", () => {
             { ...partialProps, value: 4 }
         ];
 
-        const shifted = shift(arr);
+        const shifted = shiftLeftAndAggregate(arr);
         expect(shifted.data[0].value).toBe(2);
         expect(shifted.data[1].value).toBe(4);
         expect(shifted.data[2].value).toBe(2);
@@ -74,7 +74,7 @@ describe("shift row", () => {
             { ...partialProps, value: 4 }
         ];
 
-        const shifted = shift(arr);
+        const shifted = shiftLeftAndAggregate(arr);
         expect(shifted.data[0].value).toBe(4);
         expect(shifted.data[1].value).toBe(8);
         expect(shifted.data[2].value).toBe(0);

@@ -1,4 +1,4 @@
-export enum Axes {
+export enum Axises {
     x = "x",
     y = "y",
     z = "z",

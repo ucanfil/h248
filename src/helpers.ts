@@ -1,5 +1,5 @@
 import clone from "ramda/es/clone";
-import { Axes } from "./enums";
+import { Axises } from "./enums";
 import { IHex, Keys, IAccumulator } from "./interfaces";
 
 export const buildUrl = (hostname: string, radius: number, port: string | null) => {
@@ -121,26 +121,26 @@ export const calcHeight = (radius: number) => {
 
 export const calcSize = (radius: number) => 500 / (3 * radius - 1);
 
-export const getAxes = (key: Keys) => {
+export const getAxis = (key: Keys) => {
     switch (key) {
         case "q":
         case "d":
-            return Axes.z;
+            return Axises.z;
         case "w":
         case "s":
-            return Axes.x;
+            return Axises.x;
         case "a":
         case "e":
-            return Axes.y;
+            return Axises.y;
     }
 }
 
-export const groupsByAxes = (hexes: IHex[], axes: Axes) => {
+export const getGroupsByAxis = (hexes: IHex[], axis: Axises) => {
     return hexes.reduce((acc, hex: IHex) => {
-        if (acc[`${(hex[axes])}`] !== undefined) {
-            acc[`${(hex[axes])}`].push(hex);
+        if (acc[`${(hex[axis])}`] !== undefined) {
+            acc[`${(hex[axis])}`].push(hex);
         } else {
-            acc[`${(hex[axes])}`] = [hex];
+            acc[`${(hex[axis])}`] = [hex];
         }
 
         return acc;
@@ -148,13 +148,13 @@ export const groupsByAxes = (hexes: IHex[], axes: Axes) => {
 }
 
 export const sortByDirection = (arr: IHex[], key: Keys) => {
-    let axes: Axes;
+    let axis: Axises;
     let dir: number;
 
     if (["w", "s", "q", "d"].includes(key)) {
-        axes = Axes.y;
+        axis = Axises.y;
     } else {
-        axes = Axes.z;
+        axis = Axises.z;
     }
 
     if (["w", "q", "a"].includes(key)) {
@@ -163,11 +163,22 @@ export const sortByDirection = (arr: IHex[], key: Keys) => {
         dir = 1;
     }
 
-    return arr.sort((a, b) => a[axes] > b[axes] ? dir : -dir);
+    return arr.sort((a, b) => a[axis] > b[axis] ? dir : -dir);
 }
 
-export const shift = (arr: IHex[]) => {
-    let shifted = false;
+/**
+ * Shifts given row/column to the left, aggregates neighbouring values if they're equal
+ *
+ * | before shift < |   after |
+ * |            2 2 | 4       |
+ * |          2 2 2 | 4 2     |
+ * |          2 2 4 | 4 4     |
+ * |          4 2 2 | 4 4     |
+ * |        2 4 2 4 | 2 4 2 4 |
+ * |        2 2 4 4 | 4 8     |
+ */
+export const shiftLeftAndAggregate = (arr: IHex[]): { data: IHex[]; isShifted: boolean; } => {
+    let isShifted = false;
     let j = 0;
 
     for (let i = 1; i < arr.length; i++) {
@@ -176,24 +187,24 @@ export const shift = (arr: IHex[]) => {
         } else if (arr[j].value === 0 && arr[i].value !== 0) {
             arr[j].value = arr[i].value;
             arr[i].value = 0;
-            shifted = true;
+            isShifted = true;
         } else if (arr[j].value === arr[i].value) {
             arr[j].value = arr[j].value + arr[i].value;
             arr[i].value = 0;
             j++;
-            shifted = true;
+            isShifted = true;
         } else if (arr[j].value !== arr[i].value) {
             if (arr[j + 1].value === 0) {
                 arr[j + 1].value = arr[i].value;
                 arr[i].value = 0;
-                shifted = true;
+                isShifted = true;
             }
 
             j++;
         }
     }
 
-    return { data: arr, shifted };
+    return { data: arr, isShifted };
 }
 
 export const checkIsPlaying = (hexes: IHex[]) => {
@@ -202,15 +213,15 @@ export const checkIsPlaying = (hexes: IHex[]) => {
 
     outerloop:
     for (const key of ["q", "w", "e", "a", "s", "d"]){
-      const axes = getAxes(key as Keys);
-      let groups = groupsByAxes(clonedHexes, axes);
+      const axis = getAxis(key as Keys);
+      let groups = getGroupsByAxis(clonedHexes, axis);
 
       for (const group in groups) {
         let column = groups[group];
 
         column = sortByDirection(column, key as Keys);
 
-        if (shift(column).shifted) {
+        if (shiftLeftAndAggregate(column).isShifted) {
           isPlaying = true;
           break outerloop;
         }

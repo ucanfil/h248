@@ -5,12 +5,12 @@ import {
   buildUrl,
   checkIsPlaying,
   createGrid,
-  getAxes,
+  getAxis,
   getFillColor,
-  groupsByAxes,
+  getGroupsByAxis,
   positionGrid,
   postData,
-  shift,
+  shiftLeftAndAggregate,
   sortByDirection
 } from "../../helpers";
 
@@ -37,22 +37,31 @@ const Game = () => {
     const nonEmpty = hexes.filter(hex => hex.value !== 0);
 
     const data = await postData(buildUrl(hostname, radius, port), nonEmpty)
-        .then((data: IHex[]) => {
-          const hexesWithValue = clone(hexes).map(hex => {
-            data.forEach((d: IHex) => {
-              if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
-                hex.value = d.value;
-              }
-            });
-
-            return hex;
+      .then((data: IHex[]) => {
+        const hexesWithValue = clone(hexes).map(hex => {
+          data.forEach((d: IHex) => {
+            if (d.x === hex.x && d.y === hex.y && d.z === hex.z) {
+              hex.value = d.value;
+            }
           });
 
-          return hexesWithValue;
+          return hex;
         });
+
+        return hexesWithValue;
+      });
 
     return data;
   }, [hostname, port, radius]);
+
+  const initializeRound = useCallback((hexes: IHex[]) => {
+    getHexesData(hexes)
+      .then(hexes => {
+        setHexes(hexes);
+        setStatus(isPlaying(hexes) ? "playing" : "game-over");
+      })
+      .catch(err => console.log(err));
+  }, [getHexesData, isPlaying]);
 
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
@@ -60,19 +69,19 @@ const Game = () => {
         return;
       }
 
-      let shifted = false;
+      let isShifted = false;
 
       const cloned: IHex[] = clone(hexes);
-      const axes = getAxes(e.key as Keys);
-      let groups = groupsByAxes(cloned, axes);
+      const axes = getAxis(e.key as Keys);
+      let groups = getGroupsByAxis(cloned, axes);
 
       for (const group in groups) {
         let column = groups[group];
 
         column = sortByDirection(column, e.key as Keys);
-        const shiftedColumn = shift(column);
+        const shiftedColumn = shiftLeftAndAggregate(column);
 
-        shifted = shifted || shiftedColumn.shifted;
+        isShifted = isShifted || shiftedColumn.isShifted;
 
         shiftedColumn.data.forEach(d => {
           cloned.forEach((hex: IHex) => {
@@ -83,18 +92,13 @@ const Game = () => {
         });
       }
 
-      if (!shifted) {
+      if (!isShifted) {
         return;
       }
 
       setHexes(cloned);
 
-      getHexesData(cloned)
-        .then(hexes => {
-          setHexes(hexes);
-          setStatus(isPlaying(hexes) ? "playing" : "game-over");
-        })
-        .catch(err => console.log(err));
+      initializeRound(cloned);
     };
 
     window.addEventListener("keydown", handleKeydown);
@@ -102,16 +106,11 @@ const Game = () => {
     return () => {
       window.removeEventListener("keydown", handleKeydown);
     }
-  }, [hexes, hostname, port, radius, isPlaying, getHexesData]);
+  }, [hexes, hostname, port, radius, isPlaying, getHexesData, initializeRound]);
 
   // Initial request to server
   useEffect(() => {
-    getHexesData(hexes)
-      .then(hexes => {
-        setHexes(hexes);
-        setStatus(isPlaying(hexes) ? "playing" : "game-over");
-      })
-      .catch(err => console.log(err));
+    initializeRound(hexes);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

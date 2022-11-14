@@ -1,5 +1,3 @@
-# TO THE ATTENTION OF ERKI
-
 -   This was a homework sent to me by another company. Please read the below [document](#hexagonal-2048) to get a better
     understanding what was this about but in short a simple backend and end to end testing is provided by them and I
     implemented the front end functionality, so everything inside `src` folder. (You can also check each commit to
@@ -22,10 +20,7 @@
 
 ## Task description
 
-This task description is rather long, but do not feel alarmed, the task is actually simpler than it seems on the first
-glance.
-
-Your task is to develop a game [2048](https://play2048.co/) on a hexagonal field. Please take a look at our example:
+This project aim was to develop a game [2048](https://play2048.co/) on a hexagonal field. Please take a look at an example:
 [hexagonal 2048](https://hex2048.surge.sh/).
 
 What is required:
